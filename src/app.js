@@ -21,19 +21,16 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. server-to-server, curl in dev)
-      // only in non-production environments
-      if (!origin && env.NODE_ENV !== 'production') {
-        return callback(null, true);
-      }
+      // Allow requests with no origin (like server-to-server requests or some production frontends)
+      if (!origin) return callback(null, true);
 
-      if (env.ALLOWED_ORIGINS.includes(origin)) {
-        return callback(null, true);
-      }
+      // Allow requests from your allowed origins
+      if (env.ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
 
+      // Reject all others
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
-    methods : ['POST', 'OPTIONS'],
+    methods: ['POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
     optionsSuccessStatus: 204,
   }),
