@@ -1,28 +1,43 @@
 // src/config/mailer.js
-// Creates and exports a singleton Nodemailer transporter.
-// Uses Gmail with an App Password — never your real Gmail password.
+// Production-safe Nodemailer configuration for Render
 
 import nodemailer from 'nodemailer';
 import { env } from './env.js';
 
+/* ────────────────────────────────────────────────────────────────
+   TRANSPORTER
+   Explicit SMTP config (more reliable than service: 'gmail')
+──────────────────────────────────────────────────────────────── */
+
 export const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // required for port 465
+
   auth: {
     user: env.GMAIL_USER,
     pass: env.GMAIL_APP_PASSWORD,
   },
+
+  // ⭐ Important for cloud providers (Render/Railway/etc.)
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
-/**
- * Verifies the SMTP connection at startup.
- * Logs a warning instead of crashing so the server still boots
- * (you may want to make this fatal in production).
- */
+/* ────────────────────────────────────────────────────────────────
+   VERIFY SMTP CONNECTION
+──────────────────────────────────────────────────────────────── */
+
 export const verifyMailer = async () => {
   try {
     await transporter.verify();
-    console.log('✅  Nodemailer SMTP connection verified');
+
+    console.log('✅ Nodemailer SMTP connection verified');
   } catch (err) {
-    console.error('⚠️  Nodemailer SMTP verification failed:', err.message);
+    console.warn(
+      '⚠️ Nodemailer SMTP verification failed:',
+      err.message
+    );
   }
 };
