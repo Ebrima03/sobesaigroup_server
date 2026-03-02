@@ -16,10 +16,11 @@ const app = express();
    TRUST PROXY (⭐ FIXES RENDER + express-rate-limit ERROR)
    Render sits behind a proxy and sends X-Forwarded-For headers.
 ──────────────────────────────────────────────────────────────── */
+app.set('trust proxy', 1);
 
-if (env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
+// if (env.NODE_ENV === 'production') {
+//   app.set('trust proxy', 1);
+// }
 
 /* ────────────────────────────────────────────────────────────────
    SECURITY HEADERS
