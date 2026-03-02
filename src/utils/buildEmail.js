@@ -141,7 +141,7 @@ export const buildContactEmail = (data) => {
 </html>`;
 
   return {
-    from   : `"Sobesai Group Website" <${env.GMAIL_USER}>`,
+   from: `"Sobesai Group Website" <${env.RESEND_FROM_EMAIL}>`,
     to     : env.CONTACT_RECEIVER_EMAIL,
     replyTo: `"${safeName}" <${safeEmail}>`,
     subject: `[New Lead] ${safeInquiry} – ${safeName}`,
