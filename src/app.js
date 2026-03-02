@@ -1,33 +1,63 @@
 // src/app.js
 // Express application factory.
-// Keeping app creation separate from server.listen() makes the app
-// easy to test without binding to a real port.
 
-import express   from 'express';
-import helmet    from 'helmet';
-import cors      from 'cors';
-import { env }   from './config/env.js';
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+
+import { env } from './config/env.js';
 import contactRouter from './routes/contact.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-// ── Security headers (helmet) ─────────────────────────────────────────────────
-// Sets ~15 HTTP headers: Content-Security-Policy, X-Frame-Options, etc.
+/* ────────────────────────────────────────────────────────────────
+   TRUST PROXY (⭐ FIXES RENDER + express-rate-limit ERROR)
+   Render sits behind a proxy and sends X-Forwarded-For headers.
+──────────────────────────────────────────────────────────────── */
+
+if (env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   SECURITY HEADERS
+──────────────────────────────────────────────────────────────── */
+
 app.use(helmet());
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-// Only accept requests from the listed frontend origins.
+/* ────────────────────────────────────────────────────────────────
+   RATE LIMITING (GLOBAL)
+──────────────────────────────────────────────────────────────── */
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,                  // max requests per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests. Please try again later.',
+  },
+});
+
+app.use(limiter);
+
+/* ────────────────────────────────────────────────────────────────
+   CORS
+──────────────────────────────────────────────────────────────── */
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like server-to-server requests or some production frontends)
+      // allow server-to-server or curl/postman
       if (!origin) return callback(null, true);
 
-      // Allow requests from your allowed origins
-      if (env.ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      if (env.ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
 
-      // Reject all others
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     methods: ['POST', 'OPTIONS'],
@@ -36,23 +66,42 @@ app.use(
   }),
 );
 
-// ── Body parsing ──────────────────────────────────────────────────────────────
-// Limit body size to 16 KB — more than enough for a contact form.
+/* ────────────────────────────────────────────────────────────────
+   BODY PARSING
+──────────────────────────────────────────────────────────────── */
+
 app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
 
-// ── Health check ──────────────────────────────────────────────────────────────
-app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+/* ────────────────────────────────────────────────────────────────
+   HEALTH CHECK
+──────────────────────────────────────────────────────────────── */
 
-// ── API routes ────────────────────────────────────────────────────────────────
-app.use('/api/contact', contactRouter);
-
-// ── 404 handler ───────────────────────────────────────────────────────────────
-app.use((_req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
-// ── Centralized error handler (must be last) ──────────────────────────────────
+/* ────────────────────────────────────────────────────────────────
+   ROUTES
+──────────────────────────────────────────────────────────────── */
+
+app.use('/api/contact', contactRouter);
+
+/* ────────────────────────────────────────────────────────────────
+   404 HANDLER
+──────────────────────────────────────────────────────────────── */
+
+app.use((_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────
+   ERROR HANDLER (MUST BE LAST)
+──────────────────────────────────────────────────────────────── */
+
 app.use(errorHandler);
 
 export default app;
